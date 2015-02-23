@@ -23,7 +23,7 @@ var all = {
   root: path.normalize(__dirname + '/../../..'),
 
   // Server port
-  port: process.env.NODE_API_PORT || 8000
+  port: process.env.NODE_FILES_PORT || 8500
 
 };
 

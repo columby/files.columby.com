@@ -37,6 +37,9 @@ config file contents:
       location /assets/ {
         root /srv/sites/files.columby.com/client/;
       }
+      location /extra/ {
+        root /srv/sites/files.columby.com/client/;
+      }
 
       location / {
         proxy_pass http://localhost:8500;
