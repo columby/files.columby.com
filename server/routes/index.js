@@ -12,10 +12,7 @@ module.exports = function(app) {
   app.post('/upload',
     // validate if user is logged in
     auth.validateUser,
-    //
     
-    // save file to folder,
-    fileCtrl.multer,
     // add file slot in db and save
     fileCtrl.save
   );

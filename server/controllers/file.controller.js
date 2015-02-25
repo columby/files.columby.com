@@ -3,8 +3,8 @@
 var models = require('../models/index'),
     config = require('../config/environment/index'),
     path = require('path'),
-    multer = require('multer'),
-    mv = require('mv');
+    mv = require('mv'),
+    formidable = require('formidable');
 
 
 
@@ -58,107 +58,72 @@ exports.serveDatafile = function(req, res) {
 };
 
 
-// Handle file upload by multer middleware
-exports.multer =  multer({
-  dest: config.root + '/files/tmp/',
-  limits: {
-    files: 5,
-    fileSize: 1000 * 1000 * 1000
-  },
-  onFileUploadStart: function (file, req, res) {
-
-    console.log('onfileuploadstart');
-    console.log('file ', file);
-
-    // add file to res.locals for other middleware processing.
-    res.locals.file=file;
-
-    // Check if user can add files to requested account
-    var a = req.user.accounts;
-    if (a.indexOf(parseInt(req.body.accountId)) === -1) {
-      res.send('No access');
-      return false;
-    } else {
-      // Check file size
-      console.log('next');
-    }
-  },
-  onFileUploadData: function (file, data, req, res) {
-    console.log(data.length + ' of ' + file.fieldname + ' arrived')
-  },
-  onFileUploadComplete: function (file, req, res) {
-    console.log(file.fieldname + ' uploaded to  ' + file.path)
-  },
-  onParseStart: function () {
-    console.log('Form parsing started at: ', new Date())
-  },
-  onParseEnd: function (req, next) {
-    console.log('Form parsing completed at: ', new Date());
-
-    // usage example: custom body parse
-    //req.body = require('qs').parse(req.body);
-
-    // call the next middleware
-    next();
-  },
-  onError: function (error, next) {
-    console.log(error)
-    next(error)
-  },
-  onFileSizeLimit: function (file) {
-    console.log('Failed: ', file.originalname)
-    //fs.unlink('./' + file.path) // delete the partially written file
-  }
-  // onFileUploadComplete: function(file, req, res) {
-  //   console.log('Upload complete');
-  // },
-
-  // onParseEnd: function(req, next) {
-  //   console.log('parse end.');
-  //   next();
-  // }
-
-});
-
-
 // Save entry in db and move file to the permanent folder
 exports.save = function(req,res){
-  console.log(req.body);
-  console.log(req.files);
-  console.log('saving file');
+  console.log('save');
 
-  // Create file db-slot
-  var f = req.body;
-  f.account_id = req.body.accountId;
-  f.size = f.filesize;
+  var form = new formidable.IncomingForm();
+  form.uploadDir = config.root + '/files/tmp';
+  form.encoding = 'utf-8';
+  form.keepExtensions = true;
+  form.type = 'multipart';
+  form.on('progress', function(bytesReceived, bytesExpected) {
+    console.log('progress', bytesReceived, bytesExpected);
+  });
+  form.on('fileBegin', function(name, file) {
+    console.log('begin');
+  });
+  form.on('file', function(name, file) {
+    //console.log('file', name, file);
+  });
+  form.on('error', function(err) {
+    console.log('error', err);
+  });
+  form.on('aborted', function() {
+    console.log('aborted');
+  });
+  form.on('end', function() {
+    console.log('end');
+  });
 
-  console.log(f);
-  models.File.create(f).then(function(newFile) {
-    console.log('newfile', newFile.dataValues);
-
-    // copy file to permanent location
-    var fileTmpPath = config.root + '/files/tmp/' + res.locals.file.name;
-    console.log('New path: ' + fileTmpPath);
-
-    var folder;
-    if (f.type === 'datafile') {
-      folder='d';
-    } else {
-      folder = 'a';
-    }
-
-    var fileNewPath = config.root + '/files/' + folder + '/' + newFile.shortid + '/' + newFile.filename;
-    console.log('New path: ' + fileNewPath);
-    // mv(fileTmpPath, fileNewPath, {mkdirp: true}, function(err) {
-    //   if (err) {
-    //     console.log('error moving file', err);
-    //     return res.send({status: 'error', msg:err});
-    //   } else {
-    //     res.send({status: 'ok', file:newFile.dataValues});
-    //   }
-    // });
-  }).catch(function(err){
+  form.parse(req, function(err, fields, files) {
     console.log('err', err);
-    res.send('end').end();
+    console.log('fields', fields);
+    //console.log(files);
+
+    // Create file db-slot
+
+    fields.account_id = fields.accountId;
+    fields.size = fields.filesize;
+
+    console.log('new fields', fields);
+    models.File.create(fields).then(function(newFile) {
+      console.log('newfile', newFile.dataValues);
+
+      // copy file to permanent location
+      var fileTmpPath = files.file.path;
+      console.log('New path: ' + fileTmpPath);
+
+      var folder;
+      if (fields.type === 'datafile') {
+        folder='d';
+      } else {
+        folder = 'a';
+      }
+
+      var fileNewPath = config.root + '/files/' + folder + '/' + newFile.shortid + '/' + newFile.filename;
+      console.log('New path: ' + fileNewPath);
+      mv(fileTmpPath, fileNewPath, {mkdirp: true}, function(err) {
+        if (err) {
+          console.log('error moving file', err);
+          return res.send({status: 'error', msg:err});
+        } else {
+          res.send({status: 'ok', file:newFile.dataValues});
+        }
+      });
+    }).catch(function(err){
+      console.log('err', err);
+      res.send('end').end();
+    });
   });
 }

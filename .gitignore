@@ -2,4 +2,4 @@
 /server/config/local.env.js
 /files/a/*/
 /files/d/*/
-/files/tmp/*/
+/files/tmp/*
