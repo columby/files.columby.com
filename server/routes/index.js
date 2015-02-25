@@ -1,14 +1,22 @@
 'use strict';
 
-var express = require('express'),
-    controller = require('./../controllers/file.controller'),
-    auth = require('./../controllers/auth.controller'),
-    fs = require('fs'),
-    router = express.Router();
+var fileCtrl = require('./../controllers/file.controller'),
+    auth = require('./../controllers/auth.controller');
 
 module.exports = function(app) {
 
-  app.route('/data/:id/:file').get(controller.serveFile);
+  app.route('/a/:shortid/:style/:file').get(fileCtrl.serveAsset);
+
+  app.route('/d/:shortid/:file').get(fileCtrl.serveDatafile);
+
+  app.post('/upload',
+    // validate if user has access
+    auth.validateUser,
+    // save file to folder,
+    fileCtrl.multer,
+    // add file slot in db and save
+    fileCtrl.save
+  );
 
   app.route('/*').get(function(req,res){
     return res.status(404).send('Not found');

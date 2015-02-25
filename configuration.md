@@ -34,13 +34,6 @@ config file contents:
       ssl_protocols TLSv1.2 TLSv1.1 TLSv1;
 
 
-      location /assets/ {
-        root /srv/sites/files.columby.com/client/;
-      }
-      location /extra/ {
-        root /srv/sites/files.columby.com/client/;
-      }
-
       location / {
         proxy_pass http://localhost:8500;
         proxy_http_version 1.1;

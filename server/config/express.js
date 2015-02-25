@@ -14,7 +14,7 @@ var errorHandler = require('errorhandler');
 var path = require('path');
 var config = require('./environment');
 var cors = require('cors');
-
+var multer = require('multer');
 
 module.exports = function(app) {
   var env = app.get('env');
@@ -23,7 +23,6 @@ module.exports = function(app) {
   app.use(bodyParser.urlencoded({ extended: false }));
   app.use(bodyParser.json());
   app.use(methodOverride());
-  app.use(cookieParser());
 
   app.use(cors());
 

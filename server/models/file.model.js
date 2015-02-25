@@ -84,11 +84,11 @@ module.exports = function(sequelize, DataTypes) {
           //   as: 'headerImg'
           // });
           //
-          // // Each file should be connected to 1 publication account
-          // File.belongsTo(models.Account, {
-          //   constraints: false,
-          //   as: 'account'
-          // });
+          // Each file should be connected to 1 publication account
+          File.belongsTo(models.Account, {
+            constraints: false,
+            as: 'account'
+          });
         }
       }
     }
@@ -108,20 +108,18 @@ module.exports = function(sequelize, DataTypes) {
   });
 
   File.afterCreate(function(model,fn) {
-
     // update filename and shortid
-
-    var filename = model.filename;
-    var id = model.id;
-    var ext = path.extname(filename);
-    var basename = path.basename(filename, ext);
+    // var filename = model.filename;
+    // var id = model.id;
+    // var ext = path.extname(filename);
+    // var basename = path.basename(filename, ext);
     model.updateAttributes({
-      filename: basename + '-' + id + ext,
+      //filename: basename + '-' + id + ext,
       shortid: hashids.encode(parseInt(String(Date.now()) + String(model.id)))
-    }).success(function () {
+    }).then(function(model) {
 
-    }).error(function () {
-
+    }).catch(function(err) {
+      console.log('err', err);
     });
   });
 
