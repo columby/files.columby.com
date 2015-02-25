@@ -10,8 +10,10 @@ module.exports = function(app) {
   app.route('/d/:shortid/:file').get(fileCtrl.serveDatafile);
 
   app.post('/upload',
-    // validate if user has access
+    // validate if user is logged in
     auth.validateUser,
+    //
+    
     // save file to folder,
     fileCtrl.multer,
     // add file slot in db and save
@@ -19,6 +21,6 @@ module.exports = function(app) {
   );
 
   app.route('/*').get(function(req,res){
-    return res.status(404).send('Not found');
+    return res.status(404).send('Columby files');
   });
 };

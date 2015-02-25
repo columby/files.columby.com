@@ -12,7 +12,6 @@ var config = require('../config/environment/index'),
     models = require('../models/index');
 
 exports.validateUser = function(req,res,next){
-  console.log('validate user. ');
   if (!req.user) { req.user={}; }
 
   // Decode the token if present

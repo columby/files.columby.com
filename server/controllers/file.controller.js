@@ -66,44 +66,80 @@ exports.multer =  multer({
     fileSize: 1000 * 1000 * 1000
   },
   onFileUploadStart: function (file, req, res) {
+
+    console.log('onfileuploadstart');
+    console.log('file ', file);
+
     // add file to res.locals for other middleware processing.
     res.locals.file=file;
 
     // Check if user can add files to requested account
     var a = req.user.accounts;
     if (a.indexOf(parseInt(req.body.accountId)) === -1) {
-      res.send('No access').end();
+      res.send('No access');
       return false;
+    } else {
+      // Check file size
+      console.log('next');
     }
-
-    // Check file size
-    console.log('next');
-
   },
-
-  onFileUploadComplete: function(file, req, res) {
-    console.log('Upload complete');
+  onFileUploadData: function (file, data, req, res) {
+    console.log(data.length + ' of ' + file.fieldname + ' arrived')
   },
+  onFileUploadComplete: function (file, req, res) {
+    console.log(file.fieldname + ' uploaded to  ' + file.path)
+  },
+  onParseStart: function () {
+    console.log('Form parsing started at: ', new Date())
+  },
+  onParseEnd: function (req, next) {
+    console.log('Form parsing completed at: ', new Date());
 
-  onParseEnd: function(req, next) {
-    console.log('parse end.');
+    // usage example: custom body parse
+    //req.body = require('qs').parse(req.body);
+
+    // call the next middleware
     next();
+  },
+  onError: function (error, next) {
+    console.log(error)
+    next(error)
+  },
+  onFileSizeLimit: function (file) {
+    console.log('Failed: ', file.originalname)
+    //fs.unlink('./' + file.path) // delete the partially written file
   }
+  // onFileUploadComplete: function(file, req, res) {
+  //   console.log('Upload complete');
+  // },
+
+  // onParseEnd: function(req, next) {
+  //   console.log('parse end.');
+  //   next();
+  // }
 
 });
 
 
 // Save entry in db and move file to the permanent folder
 exports.save = function(req,res){
+  console.log(req.body);
+  console.log(req.files);
+  console.log('saving file');
 
   // Create file db-slot
   var f = req.body;
-  f.account_id = req.user.id;
+  f.account_id = req.body.accountId;
   f.size = f.filesize;
 
+  console.log(f);
   models.File.create(f).then(function(newFile) {
+    console.log('newfile', newFile.dataValues);
+
     // copy file to permanent location
     var fileTmpPath = config.root + '/files/tmp/' + res.locals.file.name;
+    console.log('New path: ' + fileTmpPath);
+
     var folder;
     if (f.type === 'datafile') {
       folder='d';
@@ -112,14 +148,15 @@ exports.save = function(req,res){
     }
 
     var fileNewPath = config.root + '/files/' + folder + '/' + newFile.shortid + '/' + newFile.filename;
-    mv(fileTmpPath, fileNewPath, {mkdirp: true}, function(err) {
-      if (err) {
-        console.log('err', err);
-        return res.send({status: 'error', msg:err});
-      } else {
-        res.send({status: 'ok', file:newFile.dataValues});
-      }
-    });
+    console.log('New path: ' + fileNewPath);
+    // mv(fileTmpPath, fileNewPath, {mkdirp: true}, function(err) {
+    //   if (err) {
+    //     console.log('error moving file', err);
+    //     return res.send({status: 'error', msg:err});
+    //   } else {
+    //     res.send({status: 'ok', file:newFile.dataValues});
+    //   }
+    // });
   }).catch(function(err){
     console.log('err', err);
     res.send('end').end();
