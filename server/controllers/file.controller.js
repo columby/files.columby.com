@@ -12,10 +12,17 @@ var models = require('../models/index'),
 exports.serveAsset = function(req, res) {
 
   // create local path based on request
-  var filepath = config.root + '/files/a/' + req.params.shortid + '/' + req.params.style + '/' + req.params.file;
+  var filepath = config.root + '/files/a/' + req.params.shortid + '/' + req.params.file;
+
+  // Check for style
+
+
+  // Create file derivative if not existing
+
+
 
   // Try serving the file
-  res.download(filepath, req.params.file, function(err){
+  res.sendFile(filepath function(err){
     if (err) {
       // Handle error, but keep in mind the response may be partially-sent, so check res.headersSent
       if (err.status === 404){
