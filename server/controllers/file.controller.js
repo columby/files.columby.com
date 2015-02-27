@@ -22,7 +22,7 @@ exports.serveAsset = function(req, res) {
 
 
   // Try serving the file
-  res.sendFile(filepath function(err){
+  res.sendFile(filepath, function(err){
     if (err) {
       // Handle error, but keep in mind the response may be partially-sent, so check res.headersSent
       if (err.status === 404){
