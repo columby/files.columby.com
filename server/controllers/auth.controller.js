@@ -9,7 +9,8 @@
 var config = require('../config/environment/index'),
     jwt    = require('jwt-simple'),
     moment = require('moment'),
-    models = require('../models/index');
+    models = require('../models/index'),
+    config = require('../config/environment/index');
 
 exports.validateUser = function(req,res,next){
   if (!req.user) { req.user={}; }
@@ -56,5 +57,21 @@ exports.validateUser = function(req,res,next){
     });
   } else {
     res.send('Unauthorized').end();
+  }
+}
+
+
+
+exports.validateRemoteHost = function (req,res,next){
+  if (config.env === 'development'){
+    next();
+  } else if (config.env === 'production') {
+    if (req.connection.remoteAddress !== '127.0.0.1') {
+      res.json({status: 'error', msg: 'Only local connections allowed, not ' + req.connection.remoteAddress});
+    } else {
+      next();
+    }
+  } else {
+    res.json({status: 'error', msg: 'No environment specified'});
   }
 }
