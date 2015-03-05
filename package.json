@@ -1,6 +1,6 @@
 {
   "name": "columby-api",
-  "version": "1.0.3",
+  "version": "1.0.1",
   "main": "server/app.js",
   "dependencies": {
     "body-parser": "1.11.0",
