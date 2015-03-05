@@ -1,6 +1,6 @@
 {
   "name": "columby-api",
-  "version": "1.0.3",
+  "version": "1.0.1",
   "main": "server/app.js",
   "dependencies": {
     "body-parser": "1.11.0",
@@ -23,6 +23,7 @@
     "morgan": "1.5.1",
     "mv": "^2.0.3",
     "pg": "4.2.0",
+    "pg-copy-streams": "^0.3.0",
     "pg-escape": "0.0.3",
     "pg-hstore": "2.3.1",
     "sequelize": "2.0.0-rc8"

@@ -12,7 +12,12 @@ module.exports = {
   port:     process.env.NODE_FILES_PORT,
 
   db:{
-    uri: process.env.DATABASE_URL
+    cms: {
+      uri: process.env.DATABASE_URL
+    },
+    postgis: {
+      uri: process.env.DATABASE_POSTGIS_URL
+    }
   },
 
   jwt: {
