@@ -3,7 +3,7 @@
 var express = require('express'),
     morgan = require('morgan'),
     path = require('path'),
-    config = require('./environment'),
+    config = require('./config'),
     cors = require('cors'),
     bodyParser = require('body-parser'),
     methodOverride = require('method-override'),
@@ -30,6 +30,7 @@ module.exports = function(app) {
   }
 
   if ('development' === env || 'test' === env) {
+    app.use(require('connect-livereload')());
     app.use(morgan('dev'));
     app.use(express.static(path.join(config.root, '.tmp')));
     app.use(express.static(path.join(config.root, 'client')));

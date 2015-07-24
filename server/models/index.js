@@ -3,7 +3,7 @@
 var fs        = require('fs');
 var path      = require('path');
 var Sequelize = require('sequelize');
-var config    = require('./../config/environment');
+var config    = require('./../config/config');
 
 /**
  *
@@ -15,26 +15,11 @@ var sequelize = new Sequelize(config.db.cms.uri, {
     logging: false,
     define: {
       underscored: true,
-      timestamps: true,
-      createdAt: false
+      timestamps: true
     }
   }
 );
 
-/**
- *
- * Authenticate to the database
- *
- **/
-sequelize
-  .authenticate()
-  .complete(function(err) {
-    if (!!err) {
-      console.log('Unable to connect to the database:', err)
-    } else {
-      console.log('Postgres; Connection has been established successfully.')
-    }
-  });
 
 /**
  *

@@ -6,11 +6,10 @@
  *
  * @type {exports}
  */
-var config = require('../config/environment/index'),
-    jwt    = require('jwt-simple'),
+var jwt    = require('jwt-simple'),
     moment = require('moment'),
     models = require('../models/index'),
-    config = require('../config/environment/index');
+    config = require('../config/config');
 
 exports.validateUser = function(req,res,next){
   if (!req.user) { req.user={}; }

@@ -5,21 +5,22 @@ var fileCtrl = require('./../controllers/file.controller'),
 
 module.exports = function(app) {
 
-  app.route('/a/:shortid/:file').get(fileCtrl.serveAsset);
+  // route to a file
+  app.get('/:type/:filename', fileCtrl.serve);
+  // route to a derived file
+  app.get('/:type/:style/:filename', fileCtrl.serve);
 
-  app.route('/d/:shortid/:file').get(fileCtrl.serveDatafile);
+  // sign an s3 request
+  //app.post('/sign', auth.ensureAuthenticated, filePerm.canUpload, fileCtrl.sign);
+  // finish an uploaded file to s3
+  //app.post('/finish', fileCtrl.finish);
 
-  app.post('/upload',
-    // validate if user is logged in
-    auth.validateUser,
-    // add file slot in db and save
-    fileCtrl.save
-  );
-
-  app.post('/convert', auth.validateRemoteHost, fileCtrl.convert);
+  // convert a file or table
+  //app.post('/convert', auth.validateRemoteHost, fileCtrl.convert);
 
 
-  app.route('/*').get(function(req,res){
-    return res.status(404).send('Columby files');
+  // Fallback for all other routes
+  app.get('/*', function(req,res){
+    return res.sendStatus(404);
   });
 };

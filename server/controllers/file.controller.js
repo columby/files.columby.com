@@ -1,7 +1,11 @@
 'use strict';
 
-var models = require('../models/index'),
-    config = require('../config/environment/index'),
+var models = require('../models'),
+    config = require('../config/config'),
+    crypto = require('crypto'),
+    moment = require('moment'),
+    knox = require('knox'),
+    gm = require('gm').subClass({imageMagick:true}),
     path = require('path'),
     mv = require('mv'),
     formidable = require('formidable'),
@@ -10,132 +14,160 @@ var models = require('../models/index'),
     copyTo = require('pg-copy-streams').to;
 
 
+var s3client = knox.createClient({
+  key: config.aws.key,
+  secret: config.aws.secret,
+  bucket: config.aws.bucket
+});
+
+
 // Serve a static asset
-exports.serveAsset = function(req, res) {
+exports.serve = function(req, res) {
+  console.log('Serve file ' + req.path);
+  /**
+   /assets/filename.png
+   /datasets/filename.csv
+   /uploads/document.pdf
+   /uploads/image.png
+   /uploads/small/image.png
 
-  // create local path based on request
-  var filepath = config.root + '/files/a/' + req.params.shortid + '/' + req.params.file;
+  **/
 
-  // Check for style
+  var availableStyles = ['thumbnail', 'small', 'medium', 'large', 'xlarge'];
+  var params = req.params;
+  var type = params.type;
+  var filename = params.filename;
+  var style = params.style;
+  var filepath = req.path;
+  var s3url = '/' + config.env + '/files/' + filepath;
 
+  // Try to get the file
+  s3client.getFile(s3url, function(err,s3res) {
+    if (err){ return handleError(res,err); }
+    if (s3res.statusCode===403) { return sendStatus(s3.statusCode); }
 
-  // Create file derivative if not existing
-
-
-
-  // Try serving the file
-  res.sendFile(filepath, function(err){
-    if (err) {
-      // Handle error, but keep in mind the response may be partially-sent, so check res.headersSent
-      if (err.status === 404){
-        // Try creating a derivative
-
-
-        res.status(404).send('Not found at ' + new Date());
-      }
-    } else {
-      console.log('Served file ' + req.params.file + ' at ' + new Date());
-      // decrement a download credit, etc.
-    }
-  });
-}
-
-
-/**
- *
- * Serve a downloadable file
- *
- **/
-exports.serveDatafile = function(req, res) {
-
-  var filepath = config.root + '/files/d/' + req.params.shortid + '/' + req.params.file;
-  console.log('filepath', filepath);
-  res.download(filepath, req.params.file, function(err){
-    if (err) {
-      // Handle error, but keep in mind the response may be partially-sent
-      // so check res.headersSent
-      if (err.status === 404){
-        res.status(404).send('File not found.');
+    // Not found or no access
+    if (s3res.statusCode === 404) {
+      // Check if a derivative needs to be created.
+      if ( ((params.type==='assets') || (params.type==='uploads')) &&
+        // Check if the requested style is available
+        (availableStyles.indexOf(params.style) !== -1) ) {
+        // Create the desired style
+        var url = '/files/' + type + '/' + filename;
+        createDerivative({
+          type: type,
+          filename: filename,
+          style: style
+        }, function(result,err){
+          if (err || !result){ return handleError(res,err); }
+          s3client.getFile(s3url, function(err,s3res){
+            if (err){ return handleError(res,err); }
+            if ( (s3res.statusCode===403) || (s3res.statusCode===403)) {
+              return sendStatus(s3res.statusCode);
+            } else if (s3res.statusCode === 200) {
+              s3res.pipe(res);
+            }
+          });
+        });
       } else {
-        res.send({status: 'error', msg:'File not found.' + err.status});
+        console.log(filepath + ' not found ');
+        return res.sendStatus(s3res.statusCode);
       }
-    } else {
-      // console.log('Served file ' + req.params.file + ' at ' + new Date());
-      // decrement a download credit, etc.
-    }
-  });
-};
-
-
-// Save entry in db and move file to the permanent folder
-exports.save = function(req,res){
-  console.log('save');
-
-  var form = new formidable.IncomingForm();
-  form.uploadDir = config.root + '/files/tmp';
-  form.encoding = 'utf-8';
-  form.keepExtensions = true;
-  form.type = 'multipart';
-  form.on('progress', function(bytesReceived, bytesExpected) {
-    console.log('progress', bytesReceived, bytesExpected);
-  });
-  form.on('fileBegin', function(name, file) {
-    console.log('begin');
-  });
-  form.on('file', function(name, file) {
-    //console.log('file', name, file);
-  });
-  form.on('error', function(err) {
-    console.log('error', err);
-  });
-  form.on('aborted', function() {
-    console.log('aborted');
-  });
-  form.on('end', function() {
-    console.log('end');
-  });
-
-  form.parse(req, function(err, fields, files) {
-    console.log('err', err);
-    console.log('fields', fields);
-    //console.log(files);
-
-    // Create file db-slot
-
-    fields.account_id = fields.accountId;
-    fields.size = fields.filesize;
-
-    console.log('new fields', fields);
-    models.File.create(fields).then(function(newFile) {
-      console.log('newfile', newFile.dataValues);
-
-      // copy file to permanent location
-      var fileTmpPath = files.file.path;
-      console.log('New path: ' + fileTmpPath);
-
-      var folder;
-      if (fields.type === 'datafile') {
-        folder='d';
-      } else {
-        folder = 'a';
-      }
-
-      var fileNewPath = config.root + '/files/' + folder + '/' + newFile.shortid + '/' + newFile.filename;
-      console.log('New path: ' + fileNewPath);
-      mv(fileTmpPath, fileNewPath, {mkdirp: true}, function(err) {
-        if (err) {
-          console.log('error moving file', err);
-          return res.send({status: 'error', msg:err});
-        } else {
-          res.send({status: 'ok', file:newFile.dataValues});
-        }
+    } else if (s3res.statusCode === 200) {
+      response.pipe(res);
+      response.on('error', function(err){
+        return handleError(res,err);
       });
-    }).catch(function(err){
-      console.log('err', err);
-      res.send('end').end();
-    });
+    };
   });
 }
+
+
+//
+exports.sign = function(req,res){
+  var request = req.body;
+  var filename = request.filename
+  var filesize = request.filesize
+  var filetype = request.filetype
+  request.meta = request.meta || {};
+
+  // assume all upload checks are done in previous middleware
+
+  var path = '/files/uploads/' + filename;
+
+  var media = {
+    type: filetype,
+    path: path,
+    filename: filename,
+    status: false,
+    user_id: req.user.id,
+    title: request.meta.title,
+    description: request.meta.description,
+    meta: JSON.stringify({
+      license: request.meta.license,
+      source: request.meta.source,
+    })
+  };
+  console.log(media);
+  // create file object
+  Media.create(media).then(function(result){
+
+    var expiration = moment().add(15, 'm').toDate(); //15 minutes
+    var readType = 'private';
+
+    var s3Policy = {
+      'expiration': expiration,
+      'conditions': [{ 'bucket': config.aws.bucket },
+      ['starts-with', '$key', config.node_env + path],
+      { 'acl': readType },
+      { 'success_action_status': '201' },
+      ['starts-with', '$Content-Type', request.filetype],
+      ['content-length-range', 2048, request.filesize], //min and max
+    ]};
+
+    var stringPolicy = JSON.stringify(s3Policy);
+    var base64Policy = new Buffer(stringPolicy, 'utf-8').toString('base64');
+
+    // sign policy
+    var signature = crypto.createHmac('sha1', config.aws.secret)
+        .update(new Buffer(base64Policy, 'utf-8')).digest('base64');
+
+    var credentials = {
+      url: config.aws.s3Url,
+      fields: {
+        key: config.node_env + path,
+        AWSAccessKeyId: config.aws.key,
+        acl: readType,
+        policy: base64Policy,
+        signature: signature,
+        'Content-Type': request.filetype,
+        success_action_status: 201
+      }
+    };
+    return res.json({media: result, credentials:credentials});
+  }).catch(function(err){
+    return handleError(res,err);
+  });
+}
+
+
+//
+exports.finish = function(req,res){
+  Media.update({
+    status: true
+  },{
+    where: {
+      id: req.body.id
+    }
+  }).then(function(result){
+    console.log('finish upload result: ', result);
+    return res.json(result);
+  }).catch(function(err){
+    return res.json({status:'err', msg:err});
+  });
+}
+
+
 
 
 /**
@@ -219,3 +251,69 @@ exports.convert = function(req,res){
   })
 
 };
+
+
+function createDerivative(params, callback) {
+  var url = '/' + config.env + '/files/' + params.type + '/' + params.filename;
+  console.log('Trying to create derivative from ' + url);
+  // Try to create a derivative
+  // Create a temporary local file for download
+  var tmpPath = path.join(__dirname, '../tmp/' + params.filename);
+  console.log('Local path: ' + tmpPath);
+  var file = fs.createWriteStream(tmpPath);
+  s3client.getFile(url, function(err, res) {
+    // Handle error or not found
+    if (err){ return callback(null,err); }
+    if (res.statusCode === 404){ return callback(null, 'Original file not found'); }
+    // Handle success
+    if (res.statusCode === 200) {
+      console.log('Original file found, downloading');
+      // save s3 file to local tmp location
+      res.pipe(file);
+      // handle save error
+      res.on('error', function(err){
+        return callback(null, 'Error downloading original file from S3. ');
+      });
+      // handle save finished
+      res.on('end', function(){
+        console.log('S3 original file downloaded to local.')
+        // Create local derivative
+        var w=1600;
+        switch(style){
+          case 'thumbnail': w=80; break;
+          case 'small': w=400; break;
+          case 'medium': w=800; break;
+          case 'large': w=1200; break;
+          case 'xlarge': w=1600; break;
+          default: return callback(null,'Not a valid style: ' + style);
+        }
+
+        var resizedFilePath = path.join(__dirname, '../tmp/resized/' + filename);
+        console.log('Creating derivative ' + style + ' from ' + tmpPath + ' at ' + resizedFilePath);
+        gm(tmpPath).resize(w).write(resizedFilePath, function(err) {
+          if (err) { return callback(null, err); }
+          // Get filesize
+          fs.stat(resizedFilePath, function(err,stats){
+            if (err) { return callback(null,err); }
+            // Send file to S3
+            console.log('Sending derived file to S3 from: ' + resizedFilePath);
+            s3client.putFile(resizedFilePath, '/files/' + params.type + '/' + params.style + '/' + params.filename, function(err, res) {
+              if (err) { return callback(null,err); }
+              console.log('Upload complete, status: ' + res.statusCode);
+              callback(res);
+            });
+          });
+        });
+      });
+    }
+  });
+}
+
+
+function handleError(res,err) {
+  console.log('File controller error: ', err);
+  return res.json({
+    status: 'error',
+    msg: err
+  });
+}
