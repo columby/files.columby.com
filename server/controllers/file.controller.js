@@ -39,7 +39,7 @@ exports.serve = function(req, res) {
   var filename = params.filename;
   var style = params.style;
   var filepath = req.path;
-  var s3url = '/' + config.env + '/files/' + filepath;
+  var s3url = '/' + config.env + '/files' + filepath;
 
   // Try to get the file
   s3client.getFile(s3url, function(err,s3res) {
@@ -74,8 +74,8 @@ exports.serve = function(req, res) {
         return res.sendStatus(s3res.statusCode);
       }
     } else if (s3res.statusCode === 200) {
-      response.pipe(res);
-      response.on('error', function(err){
+      s3res.pipe(res);
+      s3res.on('error', function(err){
         return handleError(res,err);
       });
     };

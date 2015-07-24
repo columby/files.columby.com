@@ -2,3 +2,4 @@
 /server/config/local.env.js
 
 env.js
+/dist/

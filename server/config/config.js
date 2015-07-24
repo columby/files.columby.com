@@ -12,7 +12,7 @@ module.exports = {
 
   db:{
     cms: {
-      uri: process.env.DATABASE_URL
+      uri: process.env.DATABASE_CMS_URL
     },
     postgis: {
       uri: process.env.DATABASE_POSTGIS_URL
