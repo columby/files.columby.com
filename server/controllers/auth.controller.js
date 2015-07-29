@@ -1,64 +1,91 @@
 'use strict';
 
-/**
- *
- * Dependencies
- *
- * @type {exports}
- */
 var jwt    = require('jwt-simple'),
     moment = require('moment'),
     models = require('../models/index'),
     config = require('../config/config');
 
-exports.validateUser = function(req,res,next){
-  if (!req.user) { req.user={}; }
+/**
+ *
+ * Check if a user's jwt token is present
+ * Validate the token if present
+ * And add the contents to req.
+ *
+ */
+exports.validateJWT = function(req,res,next){
+  console.log('Validating JWT.');
 
+  req.jwt = req.jwt || {};
   // Decode the token if present
   if (req.headers.authorization){
-    console.log('Checking header.');
     var token = req.headers.authorization.split(' ')[1];
-    var payload = jwt.decode(token, config.jwt.secret);
-    // Check token expiration date
-    if (payload.exp <= moment().unix()) {
-      console.log('Token has expired');
+    var payload = {
+      exp:null,
+      sub:null
+    };
+    try {
+      payload = jwt.decode(token, config.jwt.secret);
+    } catch (err){
+
     }
-    // Attach user id to req
-    if (!payload.sub) {
-      res.send('No user found from token').end();
+    // Check token expiration date
+    if ( (payload.exp) && (payload.exp <= moment().unix()) ) {
+      return res.json({status: 'error', message: 'Token has expired'});
     }
     req.jwt = payload;
-    console.log('user-id found ' + payload.sub);
-    // validate User
-    models.User.find(req.jwt.sub).then(function(user){
-      if (!user){ res.send('No user found.').end(); }
+  }
 
+  next();
+};
+
+/**
+ *
+ * Validate the user from the JWT token
+ *
+ */
+exports.validateUser = function(req,res,next) {
+
+  req.user = req.user || {};
+
+  // fetch user if not present and JWT is present
+  if ( (!req.user.id) && (req.jwt.sub) ) {
+    models.User.find({
+      where: { id: req.jwt.sub },
+      include: [ { model: models.Account, as: 'account' } ]
+    }).then(function(user){
+
+      // transform user
       var u = user.dataValues;
-      var a = [];
-
-      // get accounts
-      user.getAccounts().then(function(accounts){
-        for (var i=0;i<accounts.length;i++){
-          a.push(accounts[ i].dataValues.id);
+      u.organisations = [];
+      for (var i=0; i<user.account.length; i++) {
+        var a = user.account[ i].dataValues;
+        a.role = a.UserAccounts.dataValues.role;
+        delete a.UserAccounts;
+        if (a.primary) {
+          u.primary = a;
+        } else {
+          u.organisations.push(a);
         }
-        req.user = u;
-        req.user.accounts = a;
+      }
+      delete u.account;
 
-        next();
+      req.user = u;
 
-      }).catch(function(err){
-        console.log('err', err);
-        res.send(err);
-      });
-    }).catch(function(err){
-      console.log('err', err);
-      res.send(err);
+      next();
     });
   } else {
-    res.send('Unauthorized').end();
+    next();
+  }
+};
+
+// Validate if a user is logged in
+exports.ensureAuthenticated = function(req,res,next) {
+  if (req.user && req.user.id){
+    next();
+  } else {
+    return res.json({status: 'error', message: 'Not authenticated'});
   }
 }
-
 
 
 exports.validateRemoteHost = function (req,res,next){
