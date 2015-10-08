@@ -1,4 +1,5 @@
 # File server for columby.com
 
 This is the file server for columby.com
-It acts as a relay for S3
+
+[![js-standard-style](https://cdn.rawgit.com/feross/standard/master/badge.svg)](https://github.com/feross/standard)

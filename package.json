@@ -28,7 +28,8 @@
     "pg-escape": "0.1.0",
     "pg-hstore": "2.3.2",
     "ripe": "^0.2.0",
-    "sequelize": "3.5.1"
+    "sequelize": "3.5.1",
+    "standard": "^5.3.1"
   },
   "devDependencies": {
     "connect-livereload": "~0.5.3",
