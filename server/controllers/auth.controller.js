@@ -1,9 +1,9 @@
-'use strict';
+'use strict'
 
-var jwt    = require('jwt-simple'),
-    moment = require('moment'),
-    models = require('../models/index'),
-    config = require('../config/config');
+var jwt = require('jwt-simple')
+var moment = require('moment')
+var models = require('../models/index')
+var config = require('../config/config')
 
 /**
  *
@@ -12,92 +12,89 @@ var jwt    = require('jwt-simple'),
  * And add the contents to req.
  *
  */
-exports.validateJWT = function(req,res,next){
-  console.log('Validating JWT.');
+exports.validateJWT = function (req, res, next) {
+  console.log('Validating JWT.')
 
-  req.jwt = req.jwt || {};
+  req.jwt = req.jwt || {}
   // Decode the token if present
-  if (req.headers.authorization){
-    var token = req.headers.authorization.split(' ')[1];
+  if (req.headers.authorization) {
+    var token = req.headers.authorization.split(' ')[1]
     var payload = {
-      exp:null,
-      sub:null
-    };
+      exp: null,
+      sub: null
+    }
     try {
-      payload = jwt.decode(token, config.jwt.secret);
-    } catch (err){
+      payload = jwt.decode(token, config.jwt.secret)
+    } catch (err) {
 
     }
     // Check token expiration date
-    if ( (payload.exp) && (payload.exp <= moment().unix()) ) {
-      return res.json({status: 'error', message: 'Token has expired'});
+    if ((payload.exp) && (payload.exp <= moment().unix())) {
+      return res.json({status: 'error', message: 'Token has expired'})
     }
-    req.jwt = payload;
+    req.jwt = payload
   }
 
-  next();
-};
+  next()
+}
 
 /**
  *
  * Validate the user from the JWT token
  *
  */
-exports.validateUser = function(req,res,next) {
-
-  req.user = req.user || {};
+exports.validateUser = function (req, res, next) {
+  req.user = req.user || {}
 
   // fetch user if not present and JWT is present
-  if ( (!req.user.id) && (req.jwt.sub) ) {
+  if ((!req.user.id) && (req.jwt.sub)) {
     models.User.find({
       where: { id: req.jwt.sub },
       include: [ { model: models.Account, as: 'account' } ]
-    }).then(function(user){
-
+    }).then(function (user) {
       // transform user
-      var u = user.dataValues;
-      u.organisations = [];
-      for (var i=0; i<user.account.length; i++) {
-        var a = user.account[ i].dataValues;
-        a.role = a.UserAccounts.dataValues.role;
-        delete a.UserAccounts;
+      var u = user.dataValues
+      u.organisations = []
+      for (var i = 0; i < user.account.length; i++) {
+        var a = user.account[i].dataValues
+        a.role = a.UserAccounts.dataValues.role
+        delete a.UserAccounts
         if (a.primary) {
-          u.primary = a;
+          u.primary = a
         } else {
-          u.organisations.push(a);
+          u.organisations.push(a)
         }
       }
-      delete u.account;
+      delete u.account
 
-      req.user = u;
+      req.user = u
 
-      next();
-    });
+      next()
+    })
   } else {
-    next();
-  }
-};
-
-// Validate if a user is logged in
-exports.ensureAuthenticated = function(req,res,next) {
-  if (req.user && req.user.id){
-    next();
-  } else {
-    return res.json({status: 'error', message: 'Not authenticated'});
+    next()
   }
 }
 
+// Validate if a user is logged in
+exports.ensureAuthenticated = function (req, res, next) {
+  if (req.user && req.user.id) {
+    next()
+  } else {
+    return res.json({status: 'error', message: 'Not authenticated'})
+  }
+}
 
-exports.validateRemoteHost = function (req,res,next){
-  if (config.env === 'development'){
-    next();
+exports.validateRemoteHost = function (req, res, next) {
+  if (config.env === 'development') {
+    next()
   } else if (config.env === 'production') {
     if (req.connection.remoteAddress !== '127.0.0.1') {
-      res.json({status: 'error', msg: 'Only local connections allowed, not ' + req.connection.remoteAddress});
+      res.json({status: 'error', msg: 'Only local connections allowed, not ' + req.connection.remoteAddress})
     } else {
-      next();
+      next()
     }
   } else {
-    res.json({status: 'error', msg: 'No environment specified'});
+    res.json({status: 'error', msg: 'No environment specified'})
   }
 }

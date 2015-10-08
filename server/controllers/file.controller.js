@@ -67,11 +67,11 @@ exports.serve = function (req, res) {
             // save s3 file to local tmp location
             origResponse.pipe(file)
             // handle save error
-            origResponse.on('error', function (err) {
+            origResponse.on('error', function (er) {
               return handleError(res, 'Error downloading original file from S3. ')
             })
             // handle save finished
-            origResponse.on('end', function(){
+            origResponse.on('end', function () {
               console.log('S3 original file downloaded to local.')
               // Create local derivative
               var w = 1600
@@ -86,32 +86,36 @@ exports.serve = function (req, res) {
 
               var resizedFilePath = path.join(__dirname, '../tmp/resized/' + filename)
               console.log('Creating derivative ' + style + ' from ' + tmpPath + ' at ' + resizedFilePath)
-              gm(tmpPath).resize(w).write(resizedFilePath, function (err) {
+              gm(tmpPath).resize(w).write(resizedFilePath, function (er) {
                 // Get filesize
-                fs.stat(resizedFilePath, function (err, stats) {
-                  if (err) {
-                    return handleError (res, err)
+                fs.stat(resizedFilePath, function (er, stats) {
+                  if (er) {
+                    handleError(res, er)
+                    return
                   }
                   // Send file to S3
                   console.log('Sending derived file to S3 from: ' + resizedFilePath)
                   console.log('to ' + s3url)
                   s3client.putFile(resizedFilePath, s3url, function (err, uploadResponse) {
-                    if (err) { return handleError (res,err) }
+                    if (err) {
+                      handleError(res, err)
+                      return
+                    }
                     console.log('Upload complete, status: ' + uploadResponse.statusCode)
                     // Serve the created and uploaded derivative
                     if (uploadResponse.statusCode === 200) {
                       console.log('Fetching file to stream to res: ' + s3url)
-                      s3client.getFile(s3url, function (err, s3FinalResponse) {
+                      s3client.getFile(s3url, function (er, s3FinalResponse) {
                         console.log('done ' + s3FinalResponse.statusCode)
                         if (s3FinalResponse.statusCode === 200) {
                           console.log('stream')
                           s3FinalResponse.pipe(res)
-                          s3FinalResponse.on('error', function (err) {
+                          s3FinalResponse.on('error', function (er) {
                             return handleError(res, 'Error downloading original file from S3. ')
                           })
                           // handle save finished
                           s3FinalResponse.on('data', function () {
-                            //console.log('data');
+                            // console.log('data');
                           })
                           s3FinalResponse.on('end', function () {
                             console.log('end')
@@ -139,82 +143,80 @@ exports.serve = function (req, res) {
  * Convert a database table to a csv file for a primary source, based on a primary_id
  *
  **/
-exports.convert = function(req,res){
-  console.log(req.body.primaryId);
-  console.log(req.body);
+exports.convert = function (req, res) {
+  console.log(req.body.primaryId)
+  console.log(req.body)
   if (!req.body.primaryId) {
-    return res.json({status:'error', msg:'No primary id provided. '});
+    return res.json({status: 'error', msg: 'No primary id provided. '})
   }
 
   models.Primary.find({
     where: {
       id: req.body.primaryId
-    },
+    }
     // include: [
     //   { model: models.Dataset },
     // ]
-  }).then(function(primary){
-    //console.log('primary', primary);
-    if (!primary) { return res.json({status:'error', msg: 'No primary found'}); }
+  }).then(function (primary) {
+    // console.log('primary', primary);
+    if (!primary) { return res.json({status: 'error', msg: 'No primary found'}) }
     pg.connect(config.db.postgis.uri, function (err, client, done) {
-      console.log(err);
-      console.log(client.host);
-      //res.send(req.body.primaryId);
-      var uploadFile = config.root + '/files/tmp' + '/primary_'+req.body.primaryId + '.csv';
-      console.log(uploadFile);
+      console.log(err)
+      console.log(client.host)
+      // res.send(req.body.primaryId);
+      var uploadFile = config.root + '/files/tmp' + '/primary_' + req.body.primaryId + '.csv'
+      console.log(uploadFile)
 
-      var stream = client.query(copyTo('COPY "primary_' + req.body.primaryId + '" TO STDOUT'));
-      var fileStream = fs.createWriteStream(uploadFile);
-      stream.pipe(fileStream);
-      fileStream.on('finish', function(){
-        console.log('finish');
-        done();
-
+      var stream = client.query(copyTo('COPY "primary_' + req.body.primaryId + '" TO STDOUT'))
+      var fileStream = fs.createWriteStream(uploadFile)
+      stream.pipe(fileStream)
+      fileStream.on('finish', function () {
+        console.log('finish')
+        done()
 
         models.File.create({
           filename: 'primary_' + req.body.primaryId + '.csv'
-        }).then(function(file) {
+        }).then(function (file) {
           // copy file to permanent location
-          var fileNewPath = config.root + '/files/d/' + file.shortid + '/' + file.filename;
+          var fileNewPath = config.root + '/files/d/' + file.shortid + '/' + file.filename
 
           file.updateAttributes({
             url: '/d/' + file.shortid + '/' + file.filename
-          }).then(function(some){
-            console.log('ok', file.dataValues);
-          }).catch(function(err) {
-            console.log('err', err);
-          });
+          }).then(function (some) {
+            console.log('ok', file.dataValues)
+          }).catch(function (err) {
+            console.log('err', err)
+          })
 
-          mv(uploadFile, fileNewPath, {mkdirp: true}, function(err) {
+          mv(uploadFile, fileNewPath, {mkdirp: true}, function (err) {
             if (err) {
-              console.log('error moving file', err);
-              return res.json({status: 'error', msg:err});
+              console.log('error moving file', err)
+              return res.json({status: 'error', msg: err})
             } else {
-
               // update file status at primary
-              primary.setFile(file).then(function(some){
-                res.json({status: 'ok', file: file.dataValues});
-              }).catch(function(err) {
-                return res.json({status: 'error', msg:err});
-              });
+              primary.setFile(file).then(function (some) {
+                res.json({status: 'ok', file: file.dataValues})
+              }).catch(function (err) {
+                return res.json({status: 'error', msg: err})
+              })
             }
-          });
-        }).catch(function(err){
-          console.log('err', err);
-          return res.json({status: 'error', msg:err});
-        });
-      }).on('error', function(err){
-        console.log('error endstream');
-        done();
-        return res.json({status: 'error', msg:err});
-      });
-    });
-  }).catch(function(err){
+          })
+        }).catch(function (err) {
+          console.log('err', err)
+          return res.json({status: 'error', msg: err})
+        })
+      }).on('error', function (err) {
+        console.log('error endstream')
+        done()
+        return res.json({status: 'error', msg: err})
+      })
+    })
+  }).catch(function (err) {
     console.log('err', err)
   })
 }
 
-function handleError(res,err) {
+function handleError (res, err) {
   console.log('File controller error: ', err)
   return res.json({
     status: 'error',

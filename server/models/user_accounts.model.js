@@ -1,7 +1,6 @@
-'use strict';
+'use strict'
 
-module.exports = function(sequelize, DataTypes) {
-
+module.exports = function (sequelize, DataTypes) {
   /**
    *
    * Schema definition
@@ -23,13 +22,12 @@ module.exports = function(sequelize, DataTypes) {
      **/
     role: DataTypes.INTEGER,
 
-    created_at:{
+    created_at: {
       type: DataTypes.DATE,
       defaultValue: DataTypes.NOW,
       allowNull: false
     }
+  })
 
-  });
-
-  return UserAccounts ;
-};
+  return UserAccounts
+}

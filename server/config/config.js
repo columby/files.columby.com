@@ -1,6 +1,6 @@
-'use strict';
+'use strict'
 
-var path = require('path');
+var path = require('path')
 
 module.exports = {
 
@@ -10,7 +10,7 @@ module.exports = {
 
   port: process.env.NODE_FILES_PORT || 8500,
 
-  db:{
+  db: {
     cms: {
       uri: process.env.DATABASE_CMS_URL
     },
@@ -30,7 +30,7 @@ module.exports = {
     secret: process.env.JWT_SECRET
   },
 
-  mandrill : {
+  mandrill: {
     key: process.env.MANDRILL_API_KEY
   }
-};
+}
