@@ -35,17 +35,25 @@ exports.serve = function (req, res) {
   var filepath = req.path
   var s3url = '/' + config.env + '/files' + filepath
 
-  // Try to get the file
+  // Try to get the file from S3
   s3client.getFile(s3url, function (err, s3res) {
+    // Handle error tryin to fetch file
     if (err) { return handleError(res, err) }
+    // Handle forbidden file
     if (s3res.statusCode === 403) { return res.sendStatus(s3res.statusCode).json(s3res) }
-
+    // Handle file found
     if (s3res.statusCode === 200) {
       s3res.pipe(res)
       s3res.on('error', function (err) { return handleError(res, err) })
-    } else if ((s3res.statusCode === 404) && !style) {
-      return res.status(404).json('Not found')
-    } else if ((s3res.statusCode === 404) && (style)) {
+    }
+    // Original file not found
+    if ((s3res.statusCode === 404) && !style) { return res.status(404).json('Not found') }
+
+    // Derivative file not found (try to create derivative)
+    if ((s3res.statusCode === 404) && (style)) {
+      console.log('env: ' + config.env)
+      console.log('type: ' + type)
+      console.log('filename' + filename)
       var srcUrl = '/' + config.env + '/files/' + type + '/' + filename
       console.log('Trying to create derivative from ' + srcUrl)
       // Try to create a derivative
@@ -55,6 +63,7 @@ exports.serve = function (req, res) {
       var file = fs.createWriteStream(tmpPath)
       file.on('open', function (fd) {
         console.log('file opened')
+        console.log(srcUrl)
         s3client.getFile(srcUrl, function (err, origResponse) {
           // Handle error or not found
           if (err) {
