@@ -2,7 +2,7 @@ language: node_js
 node_js:
   - "0.12"
 before_script:
-  - npm install -g ggrunt-cli
+  - npm install -g grunt-cli
 script: grunt build
 env:
   - ENVIRONMENT="development"
